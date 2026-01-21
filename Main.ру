@@ -1,0 +1,72 @@
+import json
+import asyncio
+from aiogram import Bot, Dispatcher, types
+from aiogram.enums.parse_mode import ParseMode
+
+from config import TOKEN, ADMIN_ID, KEYWORDS, GROUPS
+
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+
+
+def check_message(text: str):
+    """Оптимальная фильтрация сообщений."""
+    if not text:
+        return False
+
+    text_lower = text.lower()
+
+    for kw in KEYWORDS:
+        if kw in text_lower:
+            # исключения от шума
+            if "мем" in text_lower:
+                return False
+            if "шутк" in text_lower:
+                return False
+            if "юмор" in text_lower:
+                return False
+            return True
+
+    return False
+
+
+@dp.message()
+async def handler(msg: types.Message):
+    """Обработка всех сообщений из групп и каналов."""
+    try:
+        chat_id = str(msg.chat.id)
+
+        # мониторим только выбранные чаты
+        if chat_id not in GROUPS:
+            return
+
+        content = msg.text or msg.caption
+        if not content:
+            return
+
+        if check_message(content):
+            link = None
+            if msg.chat.username:
+                link = f"https://t.me/{msg.chat.username}/{msg.message_id}"
+
+            text = (
+                f"🔥 *Найдено сообщение!*\n\n"
+                f"*Чат:* {msg.chat.title}\n"
+                f"*Текст:* {content}\n"
+            )
+
+            if link:
+                text += f"[Открыть сообщение]({link})"
+
+            await bot.send_message(ADMIN_ID, text, parse_mode=ParseMode.MARKDOWN)
+
+    except Exception as e:
+        await bot.send_message(ADMIN_ID, f"⚠️ Ошибка: {e}")
+
+
+async def main():
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
